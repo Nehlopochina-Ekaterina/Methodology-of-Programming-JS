@@ -1,11 +1,20 @@
 let score;
-let canyon1;
-let canyon2;
+let canyons = [];
+let countCanyons = 1000;
+let trees = [];
+let countTrees = 1000;
+let mountains = [];
+let countMountains = 1000;
 let ground;
 let sun;
-let trees;
 let clouds;
 let lives;
+let countPlatforms = 1000;
+let platforms = [];
+let countCoins = 1000;
+let coins = [];
+let onGrounded;
+let basefloor = innerHeight / 4;
 let character;
 let simple_enemy;
 let death_sound = new Audio("death_sound.mp3");
@@ -15,133 +24,23 @@ let coin_sound = new Audio("coin_sound.mp3");
 let volume = 0.14;
 let img_noSound;
 let img_sound;
+let restartButton;
 let canPlay = true;
-
-let coins = [
-    {
-        x: 500,
-        y: innerHeight - innerHeight / 4 - 15,
-        height: 30,
-        collected: false,
-        draw: function () {
-            if (!this.collected) {
-                noStroke();
-                fill(184, 134, 11);
-                ellipse(this.x + 30, this.y, this.height, 30);
-                fill(218, 165, 32);
-                ellipse(this.x + 30, this.y, this.height - 5, 25);
-            }
-        },
-        checkCollision: function (player) {
-            let d = dist(player.x, player.y, this.x + 30, this.y);
-            if (d < 30 && !this.collected) {
-                this.collected = true;
-                score.point += 2;
-                coin_sound.play();
-                return true;
-            }
-            return false;
-        }
-    },
-    {
-        x: 550,
-        y: innerHeight - innerHeight / 4 - 15,
-        height: 30,
-        collected: false,
-        draw: function () {
-            if (!this.collected) {
-                noStroke();
-                fill(184, 134, 11);
-                ellipse(this.x + 30, this.y, this.height, 30);
-                fill(218, 165, 32);
-                ellipse(this.x + 30, this.y, this.height - 5, 25);
-            }
-        },
-        checkCollision: function (player) {
-            let d = dist(player.x, player.y, this.x + 30, this.y);
-            if (d < 30 && !this.collected) {
-                this.collected = true;
-                score.point += 2;
-                coin_sound.play();
-                return true;
-            }
-            return false;
-        }
-    },
-    {
-        x: 700,
-        y: innerHeight - innerHeight / 4 - 15,
-        height: 30,
-        collected: false,
-        draw: function () {
-            if (!this.collected) {
-                noStroke();
-                fill(184, 134, 11);
-                ellipse(this.x + 30, this.y, this.height, 30);
-                fill(218, 165, 32);
-                ellipse(this.x + 30, this.y, this.height - 5, 25);
-            }
-        },
-        checkCollision: function (player) {
-            let d = dist(player.x, player.y, this.x + 30, this.y);
-            if (d < 30 && !this.collected) {
-                this.collected = true;
-                score.point += 2;
-                coin_sound.play();
-                return true;
-            }
-            return false;
-        }
-    },
-    {
-        x: 800,
-        y: innerHeight - innerHeight / 4 - 15,
-        height: 30,
-        collected: false,
-        draw: function () {
-            if (!this.collected) {
-                noStroke();
-                fill(184, 134, 11);
-                ellipse(this.x + 30, this.y, this.height, 30);
-                fill(218, 165, 32);
-                ellipse(this.x + 30, this.y, this.height - 5, 25);
-            }
-        },
-        checkCollision: function (player) {
-            let d = dist(player.x, player.y, this.x + 30, this.y);
-            if (d < 30 && !this.collected) {
-                this.collected = true;
-                score.point += 2;
-                coin_sound.play();
-                return true;
-            }
-            return false;
-        }
-    }
-];
+let sliderX = 240;
+let sliderY = 15;
+let isDragging = false;
+let offsetMovingCamera = 50;
+let spawnPoint;
 
 function preload() {
     img_noSound = loadImage("noSound.png");
     img_sound = loadImage("sound.png");
+    restartButton = loadImage("restartButton.png");
 }
 
-function drawCoins() {
-    for (let coin of coins) {
-        coin.draw();
-    }
-}
-
-function checkCoinCollection(character) {
-    for (let coin of coins) {
-        coin.checkCollision(character);
-    }
-}
-
-function setup() {
-    createCanvas(innerWidth, innerHeight);
-
+function restart() {
     spawnPoint = {
-        x: 90,
+        x: width / 10 + 50,
         y: 400
     };
 
@@ -156,6 +55,7 @@ function setup() {
         fallSpeed: 2,
         isGrounded: false,
         isDead: false,
+        isVisible: true,
         isJump: false,
         state: "front",
         isDeadCanyon: false,
@@ -170,6 +70,7 @@ function setup() {
         isSpiritVisible: false,
 
         draw: function () {
+            if (!this.isVisible) return;
             fill(this.color);
             stroke(1);
             switch (this.state) {
@@ -311,11 +212,9 @@ function setup() {
                 if (keyIsDown(68)) {
                     if (!this.isMovingRight) this.x += this.speed;
                     this.state = this.isGrounded ? "right" : "jumpRight";
-                    //this.direction = 'right';
                 } else if (keyIsDown(65)) {
                     this.x -= this.speed;
                     this.state = this.isGrounded ? "left" : "jumpLeft";
-                    //this.direction = 'left';
                 } else if (this.isGrounded) {
                     this.state = "front";
                 }
@@ -323,7 +222,7 @@ function setup() {
         },
 
         drawDeadsimple_enemy: function () {
-            if (this.isDead) {
+            if (this.isDead && lives.hearts == 0) {
                 this.y = 544;
                 this.isSpiritVisible = true;
                 if (this.isSpiritVisible) {
@@ -375,7 +274,7 @@ function setup() {
         },
 
         jump: function () {
-            this.speedGravity = 15;
+            this.speedGravity = 22;
             this.y -= this.speedGravity;
             this.isGrounded = false;
         },
@@ -384,16 +283,16 @@ function setup() {
             if (this.isDead && this.isDeadCanyon) {
                 if (this.y < height + 100) {
                     if (this.isMoving) this.x -= canyons.speedX / 2;
-                    this.fallSpeed += 1;
+                    this.fallSpeed += 3;
                     this.y += this.fallSpeed;
                     this.state = "jump";
                     death_fall_sound.play();
                 }
                 if (this.y > height + 200) {
-                    this.resetPosition();
+                    this.isVisible = false;
                     this.isDeadCanyon = false;
                     this.isMoving = false;
-                    this.death += 1;
+                    lives.hearts = 0;
                 }
             }
             if (this.isDead && this.enemy_kill == "simple_enemy") {
@@ -407,14 +306,13 @@ function setup() {
             if (this.x > width + 10) this.x = -10;
         },
 
-        checkCanyon1: function () {
-            let characterLeft = this.x - 10;
-            let characterRight = this.x + 10;
-            let canyon1Left = canyon1.x;
-            let canyon1Right = canyon1.x + canyon1.width;
-
-            if (characterRight - this.width > canyon1Left && characterLeft + this.width < canyon1Right) {
-                if (this.y + this.height >= height - ground.height) {
+        checkCanyon: function () {
+            for (let i = 0; i < canyons.length; i++) {
+                if (
+                    this.x + this.width < canyons[i].x + canyons[i].width &&
+                    this.x - this.width > canyons[i].x &&
+                    this.y + this.height >= height - ground.height
+                ) {
                     this.isGrounded = false;
                     this.isDead = true;
                     this.isDeadCanyon = true;
@@ -425,29 +323,41 @@ function setup() {
             }
         },
 
-        checkCanyon2: function () {
-            let characterLeft = this.x - 10;
-            let characterRight = this.x + 10;
-            let canyon2Left = canyon2.x;
-            let canyon2Right = canyon2.x + canyon2.width;
-
-            if (characterRight - this.width > canyon2Left && characterLeft + this.width < canyon2Right) {
-                if (this.y + this.height >= height - ground.height) {
-                    this.isGrounded = false;
-                    this.isDead = true;
-                    this.isDeadCanyon = true;
+        checkPlatform: function () {
+            let onPlatform = false;
+            const {
+                x: pX,
+                y: pY,
+                width: pW,
+                height: pH,
+                speedGravity
+            } = this;
+            for (const platform of platforms) {
+                const platformTopY = height - platform.height - platform.y;
+                const horizontalCollision = pX + pW >= platform.x && pX <= platform.x + platform.width;
+                const verticalCollision = pY + pH >= platformTopY && pY <= platformTopY + platform.height;
+                if (horizontalCollision && verticalCollision && speedGravity < 0) {
+                    this.y = platformTopY - pH;
+                    this.speedGravity = 0;
+                    onPlatform = true;
+                    break;
                 }
             }
-            if (this.isDead) {
-                this.deadAnimation();
+
+            const floorY = height - basefloor - pH;
+            if (!onPlatform && pY + pH >= floorY) {
+                this.y = floorY;
+                this.isGrounded = true;
+            } else {
+                this.isGrounded = onPlatform;
             }
         },
-
         resetPosition: function () {
             this.y = height - ground.height - this.height;
             this.x = 90;
             this.isGrounded = true;
             this.isDead = false;
+            this.isVisible = true;
             this.fallSpeed = 0;
             death_fall_sound.pause();
             death_fall_sound.currentTime = 0;
@@ -511,6 +421,72 @@ function setup() {
             }
         }
     };
+
+    lives = {
+        x: 40,
+        y: 690,
+        hearts: 3,
+        color1: color(220, 0, 0),
+        color2: color(0, 90, 0),
+
+        drawLives: function () {
+            if (this.hearts == 3) {
+                fill(this.color1);
+                circle(this.x, this.y, 20);
+                circle(this.x + 15, this.y, 20);
+                triangle(this.x + 7.5, this.y + 25, this.x - 10, this.y + 3, this.x + 25, this.y + 3);
+                fill(this.color1);
+                circle(this.x + 40, this.y, 20);
+                circle(this.x + 55, this.y, 20);
+                triangle(this.x + 47.5, this.y + 25, this.x + 30, this.y + 3, this.x + 65, this.y + 3);
+                fill(this.color1);
+                circle(this.x + 80, this.y, 20);
+                circle(this.x + 95, this.y, 20);
+                triangle(this.x + 87.5, this.y + 25, this.x + 70, this.y + 3, this.x + 105, this.y + 3);
+            }
+            if (this.hearts == 2) {
+                fill(this.color1);
+                circle(this.x, this.y, 20);
+                circle(this.x + 15, this.y, 20);
+                triangle(this.x + 7.5, this.y + 25, this.x - 10, this.y + 3, this.x + 25, this.y + 3);
+                fill(this.color1);
+                circle(this.x + 40, this.y, 20);
+                circle(this.x + 55, this.y, 20);
+                triangle(this.x + 47.5, this.y + 25, this.x + 30, this.y + 3, this.x + 65, this.y + 3);
+            }
+            if (this.hearts == 1) {
+                fill(this.color1);
+                circle(this.x, this.y, 20);
+                circle(this.x + 15, this.y, 20);
+                triangle(this.x + 7.5, this.y + 25, this.x - 10, this.y + 3, this.x + 25, this.y + 3);
+            }
+        }
+    };
+
+    score = {
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 30,
+        point: 0,
+
+        draw: function () {
+            noStroke();
+            fill(255);
+            rect(this.x, this.y, this.width, this.height);
+            fill(0);
+            textAlign(CENTER, CENTER);
+            textSize(15);
+            text(this.point, this.x + this.width / 2, this.y + this.height / 2);
+        }
+    };
+
+}
+
+function setup() {
+    createCanvas(innerWidth, innerHeight);
+
+    restart();
 
     clouds = {
         x: 0,
@@ -653,101 +629,142 @@ function setup() {
         }
     };
 
-    trees = {
-        x: 425,
-        y: innerHeight,
-        h: innerHeight / 4,
-        speedX: 4,
-        color1: color(139, 69, 19),
-        color2: color(0, 105, 0),
-        color3: color(0, 90, 0),
+    for (let i = 0; i < countTrees; i++) {
+        trees.push({
+            x: 100 + i * random(300, 500),
+            y: innerHeight,
+            h: innerHeight / 4,
+            speedX: 4,
+            color1: color(139, 69, 19),
+            color2: color(0, 105, 0),
+            color3: color(0, 90, 0),
+            type: floor(random(1, 6)),
 
-        drawTrees: function () {
-            noStroke();
-            fill(this.color1);
-            triangle(this.x, this.y - this.h, this.x + 25, this.y - this.h - 200, this.x + 50, this.y - this.h);
-            fill(this.color2);
-            circle(this.x + 25, this.y - this.h - 90, 70);
-            circle(this.x - 5, this.y - this.h - 100, 70);
-            circle(this.x + 55, this.y - this.h - 100, 70);
-            circle(this.x - 5, this.y - this.h - 140, 55);
-            circle(this.x + 55, this.y - this.h - 140, 55);
-            circle(this.x + 25, this.y - this.h - 140, 55);
-            circle(this.x + 5, this.y - this.h - 180, 45);
-            circle(this.x + 45, this.y - this.h - 180, 45);
-            circle(this.x + 25, this.y - this.h - 180, 45);
-            circle(this.x + 25, this.y - this.h - 210, 45);
+            draw: function () {
+                if (this.x < -200) return;
+                if (this.x > width + 100) return;
+                switch (this.type) {
+                    case 1:
+                        this.drawTree1();
+                        break;
+                    case 2:
+                        this.drawTree2();
+                        break;
+                    case 3:
+                        this.drawTree3();
+                        break;
+                    case 4:
+                        this.drawTree4();
+                        break;
+                    case 5:
+                        this.drawTree5();
+                        break;
+                    default:
+                        this.drawTree1();
+                }
+            },
 
-            fill(this.color1);
-            triangle(this.x + 105, this.y - this.h, this.x + 115, this.y - this.h - 105, this.x + 125, this.y - this.h);
-            fill(this.color3);
-            circle(this.x + 115, this.y - this.h - 50, 30);
-            circle(this.x + 100, this.y - this.h - 55, 30);
-            circle(this.x + 130, this.y - this.h - 55, 30);
-            circle(this.x + 100, this.y - this.h - 75, 25);
-            circle(this.x + 130, this.y - this.h - 75, 25);
-            circle(this.x + 115, this.y - this.h - 75, 25);
-            circle(this.x + 105, this.y - this.h - 90, 20);
-            circle(this.x + 125, this.y - this.h - 90, 20);
-            circle(this.x + 115, this.y - this.h - 95, 20);
+            drawTree1: function () {
+                noStroke();
+                fill(this.color1);
+                triangle(this.x, this.y - this.h, this.x + 25, this.y - this.h - 200, this.x + 50, this.y - this.h);
+                fill(this.color2);
+                circle(this.x + 25, this.y - this.h - 90, 70);
+                circle(this.x - 5, this.y - this.h - 100, 70);
+                circle(this.x + 55, this.y - this.h - 100, 70);
+                circle(this.x - 5, this.y - this.h - 140, 55);
+                circle(this.x + 55, this.y - this.h - 140, 55);
+                circle(this.x + 25, this.y - this.h - 140, 55);
+                circle(this.x + 5, this.y - this.h - 180, 45);
+                circle(this.x + 45, this.y - this.h - 180, 45);
+                circle(this.x + 25, this.y - this.h - 180, 45);
+                circle(this.x + 25, this.y - this.h - 210, 45);
+            },
+            drawTree2: function () {
+                fill(this.color1);
+                triangle(this.x, this.y - this.h, this.x + 10, this.y - this.h - 105, this.x + 20, this.y - this.h);
+                fill(this.color3);
+                circle(this.x + 10, this.y - this.h - 50, 30);
+                circle(this.x - 5, this.y - this.h - 55, 30);
+                circle(this.x + 25, this.y - this.h - 55, 30);
+                circle(this.x - 5, this.y - this.h - 75, 25);
+                circle(this.x + 25, this.y - this.h - 75, 25);
+                circle(this.x + 10, this.y - this.h - 75, 25);
+                circle(this.x, this.y - this.h - 90, 20);
+                circle(this.x + 20, this.y - this.h - 90, 20);
+                circle(this.x + 10, this.y - this.h - 95, 20);
+            },
+            drawTree3: function () {
+                fill(this.color1);
+                triangle(this.x, this.y - this.h, this.x + 15, this.y - this.h - 115, this.x + 30, this.y - this.h);
+                fill(this.color3);
+                circle(this.x + 15, this.y - this.h - 50, 30);
+                circle(this.x, this.y - this.h - 55, 30);
+                circle(this.x + 30, this.y - this.h - 55, 30);
+                circle(this.x + 30, this.y - this.h - 75, 25);
+                circle(this.x, this.y - this.h - 75, 25);
+                circle(this.x + 15, this.y - this.h - 77, 25);
+                circle(this.x + 25, this.y - this.h - 95, 23);
+                circle(this.x + 5, this.y - this.h - 95, 23);
+                circle(this.x + 15, this.y - this.h - 103, 25);
+            },
+            drawTree4: function () {
+                fill(this.color2);
+                rect(this.x, this.y - this.h - 10, 30, 10);
+                circle(this.x - 2, this.y - this.h - 10, 20);
+                circle(this.x + 13, this.y - this.h - 10, 20);
+                circle(this.x + 28, this.y - this.h - 10, 20);
+                circle(this.x + 7, this.y - this.h - 20, 17);
+                circle(this.x + 19, this.y - this.h - 20, 17);
+            },
+            drawTree5: function () {
+                fill(this.color2);
+                rect(this.x, this.y - this.h - 10, 30, 10);
+                circle(this.x + 2, this.y - this.h - 10, 20);
+                circle(this.x + 17, this.y - this.h - 10, 20);
+                circle(this.x + 32, this.y - this.h - 10, 20);
+                circle(this.x + 10, this.y - this.h - 20, 17);
+                circle(this.x + 23, this.y - this.h - 20, 17);
+            }
+        });
+    }
 
-            fill(this.color1);
-            triangle(this.x + 915, this.y - this.h, this.x + 930, this.y - this.h - 115, this.x + 945, this.y - this.h);
-            fill(this.color3);
-            circle(this.x + 930, this.y - this.h - 50, 30);
-            circle(this.x + 915, this.y - this.h - 55, 30);
-            circle(this.x + 945, this.y - this.h - 55, 30);
-            circle(this.x + 945, this.y - this.h - 75, 25);
-            circle(this.x + 915, this.y - this.h - 75, 25);
-            circle(this.x + 930, this.y - this.h - 75, 25);
-            circle(this.x + 940, this.y - this.h - 95, 23);
-            circle(this.x + 920, this.y - this.h - 95, 23);
-            circle(this.x + 930, this.y - this.h - 103, 25);
+    for (let i = 0; i < countMountains; i++) {
+        mountains.push({
+            x: 1012 + i * random(800, 1000),
+            y: innerHeight,
+            h: innerHeight / 4,
+            type: floor(random(1, 3)),
 
-            fill(this.color2);
-            rect(this.x + 797, this.y - this.h - 10, 30, 10);
-            circle(this.x + 795, this.y - this.h - 10, 20);
-            circle(this.x + 810, this.y - this.h - 10, 20);
-            circle(this.x + 825, this.y - this.h - 10, 20);
-            circle(this.x + 804, this.y - this.h - 20, 17);
-            circle(this.x + 816, this.y - this.h - 20, 17);
+            draw: function () {
+                if (this.x < -248) return;
+                if (this.x > width + 100) return;
+                switch (this.type) {
+                    case 1:
+                        this.drawMountain1();
+                        break;
+                    case 2:
+                        this.drawMountain2();
+                        break;
+                    default:
+                        this.drawMountain1();
+                }
+            },
+            drawMountain1: function () {
+                noStroke();
+                fill(120);
+                triangle(this.x, this.y - this.h, this.x + 158, this.y - this.h - 272, this.x + 238, this.y - this.h);
+                fill(145);
+                triangle(this.x - 32, this.y - this.h, this.x + 78, this.y - this.h - 232, this.x + 168, this.y - this.h);
+            },
 
-            fill(this.color2);
-            rect(this.x - 367, this.y - this.h - 10, 30, 10);
-            circle(this.x - 365, this.y - this.h - 10, 20);
-            circle(this.x - 350, this.y - this.h - 10, 20);
-            circle(this.x - 335, this.y - this.h - 10, 20);
-            circle(this.x - 357, this.y - this.h - 20, 17);
-            circle(this.x - 344, this.y - this.h - 20, 17);
-        }
-    };
-
-    mountains = {
-        x: 1012,
-        y: innerHeight,
-        h: innerHeight / 4,
-        speedX: 4,
-
-        drawMountains: function () {
-            noStroke();
-            fill(120);
-            triangle(this.x, this.y - this.h, this.x + 158, this.y - this.h - 272, this.x + 238, this.y - this.h);
-
-            noStroke();
-            fill(145);
-            triangle(this.x - 32, this.y - this.h, this.x + 78, this.y - this.h - 232, this.x + 168, this.y - this.h);
-
-            fill(120);
-            triangle(
-                this.x - innerWidth - 1012,
-                this.y - this.h,
-                this.x - innerWidth - 1890,
-                this.y - this.h - 272,
-                this.x - innerWidth - 1750,
-                this.y - this.h
-            );
-        }
-    };
+            drawMountain2: function () {
+                noStroke();
+                fill(145);
+                triangle(this.x - 32, this.y - this.h, this.x + 58, this.y - this.h - 150, this.x + 100, this.y - this.h);
+            }
+        });
+    }
 
     ground = {
         height: innerHeight / 4,
@@ -774,85 +791,67 @@ function setup() {
         }
     };
 
-    canyon1 = {
-        x: 250,
-        y: height - ground.height,
-        width: 100,
-        speedX: 4,
-
-        drawCanyon: function () {
-            fill("#0b4700");
-            rect(this.x, this.y, this.width, ground.height);
-        }
-    };
-
-    canyon2 = {
-        x: 950,
-        y: height - ground.height,
-        width: 100,
-        speedX: 4,
-
-        drawCanyon: function () {
-            fill("#0b4700");
-            rect(this.x, this.y, this.width, ground.height);
-        }
-    };
-
-    lives = {
-        x: 40,
-        y: 690,
-        color1: color(220, 0, 0),
-        color2: color(0, 90, 0),
-
-        drawLives: function () {
-            if (character.death == 0) {
-                fill(this.color1);
-                circle(this.x, this.y, 20);
-                circle(this.x + 15, this.y, 20);
-                triangle(this.x + 7.5, this.y + 25, this.x - 10, this.y + 3, this.x + 25, this.y + 3);
-                fill(this.color1);
-                circle(this.x + 40, this.y, 20);
-                circle(this.x + 55, this.y, 20);
-                triangle(this.x + 47.5, this.y + 25, this.x + 30, this.y + 3, this.x + 65, this.y + 3);
-                fill(this.color1);
-                circle(this.x + 80, this.y, 20);
-                circle(this.x + 95, this.y, 20);
-                triangle(this.x + 87.5, this.y + 25, this.x + 70, this.y + 3, this.x + 105, this.y + 3);
+    for (let i = 0; i < countCanyons; i++) {
+        canyons.push({
+            x: 250 + i * random(700, 800),
+            y: height - ground.height,
+            width: 100,
+            drawCanyon: function () {
+                if (this.x < -200) return;
+                if (this.x > width + 200) return;
+                fill("#0b4700");
+                rect(this.x, this.y, this.width, ground.height);
             }
-            if (character.death == 1) {
-                fill(this.color1);
-                circle(this.x, this.y, 20);
-                circle(this.x + 15, this.y, 20);
-                triangle(this.x + 7.5, this.y + 25, this.x - 10, this.y + 3, this.x + 25, this.y + 3);
-                fill(this.color1);
-                circle(this.x + 40, this.y, 20);
-                circle(this.x + 55, this.y, 20);
-                triangle(this.x + 47.5, this.y + 25, this.x + 30, this.y + 3, this.x + 65, this.y + 3);
-            }
-            if (character.death == 2) {
-                fill(this.color1);
-                circle(this.x, this.y, 20);
-                circle(this.x + 15, this.y, 20);
-                triangle(this.x + 7.5, this.y + 25, this.x - 10, this.y + 3, this.x + 25, this.y + 3);
-            }
-        }
-    };
+        });
+    }
 
-    score = {
-        x: 0,
-        y: 0,
-        width: 100,
-        height: 30,
-        point: 0,
+    for (let i = 0; i < countPlatforms; i++) {
+        platforms.push({
+            x: 250 + i * random(500, 600),
+            name: "platform",
+            y: 320,
+            width: 100,
+            height: 30,
+            color: color(0, 90, 0),
+            draw: function () {
+                if (this.x < -200) return;
+                if (this.x > width + 200) return;
+                fill(this.color);
+                rect(this.x, height - this.height - this.y, this.width, this.height);
+            }
+        })
+    }
 
-        draw: function () {
-            noStroke();
-            fill(255);
-            rect(this.x, this.y, this.width, this.height);
-            fill(0);
-            text(this.point, this.x + this.width / 2, this.y + this.height / 2);
-        }
-    };
+    for (let i = 0; i < countCoins; i++) {
+        coins.push({
+            x: 500 + i * random(100, 200),
+            y: innerHeight - innerHeight / 4 - 15,
+            height: 30,
+            collected: false,
+            draw: function () {
+                if (this.x < -200) return;
+                if (this.x > width + 200) return;
+                if (!this.collected) {
+                    noStroke();
+                    fill(184, 134, 11);
+                    ellipse(this.x + 30, this.y, this.height, 30);
+                    fill(218, 165, 32);
+                    ellipse(this.x + 30, this.y, this.height - 5, 25);
+                }
+            },
+            checkCollision: function (character) {
+                let d = dist(character.x, character.y, this.x + 30, this.y);
+                if (d < 30 && !this.collected) {
+                    this.collected = true;
+                    score.point += 2;
+                    coin_sound.play();
+                    return true;
+                }
+                return false;
+            }
+        })
+    }
+    onGrounded = ground;
 }
 
 function checkCollision(rectA, rectB) {
@@ -875,7 +874,11 @@ function deathFromEnemy(enemy) {
             } else {
                 character.isDead = true;
                 character.enemy_kill = enemy.name;
-                character.death += 1;
+                lives.hearts -= 1;
+                character.isVisible = false;
+                if (lives.hearts > 0) {
+                    character.resetPosition();
+                }
             }
         }
     }
@@ -884,23 +887,135 @@ function deathFromEnemy(enemy) {
 function mousePressed() {
     if (mouseX > 100 && mouseX < 140 && mouseY > 0 && mouseY < 40)
         if (canPlay) canPlay = false;
-        else if (!canPlay) canPlay  = true;
+        else if (!canPlay) canPlay = true;
+
+    if (
+        lives.hearts <= 0 &&
+        mouseX > width / 2 - restartButton.width / 10 &&
+        mouseX - width / 2 + restartButton.width / 10 &&
+        mouseY > height / 2 &&
+        mouseY < height / 2 + restartButton.height / 10
+    ) {
+        restart();
+    }
+    if (dist(sliderX, sliderY, mouseX, mouseY) <= 7.5) {
+        isDragging = true;
+    }
+}
+
+function mouseDragged() {
+    if (isDragging) {
+        sliderX = constrain(mouseX, 155, 250);
+    }
+}
+
+function mouseReleased() {
+    isDragging = false;
 }
 
 function play() {
-    if (canPlay){
-        image(img_sound, 110, 0, 30, 30);
-        volume = 0.14;
-    } else if (!canPlay) {
-        image(img_noSound, 110, 0, 30, 30);
-        volume = 0;
-    }
-    
+    fill("#ffffff");
+    rect(100, 0, 170, 30);
+    stroke("#000000");
+    strokeWeight(3);
+    line(155, 15, 250, 15);
+    fill("#c66b00");
+    noStroke();
+    circle(sliderX, sliderY, 15);
+
     background_sound.volume = volume / 2;
     coin_sound.volume = volume;
     death_fall_sound.volume = volume;
     death_sound.volume = volume;
+
+    if (canPlay) {
+        image(img_sound, 110, 0, 30, 30);
+        volume = map(sliderX, 155, 250, 0, 0.14);
+    } else {
+        image(img_noSound, 110, 0, 30, 30);
+        volume = 0;
+    }
 }
+
+function deathScreen() {
+    if (lives.hearts == 0) {
+        noStroke();
+        textAlign(CENTER, CENTER);
+        textSize(200);
+        fill(255, 0, 0);
+        text("DEAD", width / 2, height / 3);
+
+        image(
+            restartButton,
+            width / 2 - restartButton.width / 10,
+            height / 2,
+            restartButton.width / 5,
+            restartButton.height / 5
+        );
+    }
+}
+
+function movingCamera(direction) {
+    for (let i = 0; i < canyons.length; i++) {
+        if (!direction)
+            canyons[i].x += character.speed;
+        else
+            canyons[i].x -= character.speed;
+    }
+    for (let i = 0; i < platforms.length; i++) {
+        if (!direction)
+            platforms[i].x += character.speed;
+        else
+            platforms[i].x -= character.speed;
+    }
+
+    for (let i = 0; i < trees.length; i++) {
+        if (!direction)
+            trees[i].x += character.speed / 4;
+        else
+            trees[i].x -= character.speed / 4;
+    }
+    for (let i = 0; i < mountains.length; i++) {
+        switch (mountains[i].type) {
+            case 1:
+                if (!direction)
+                    mountains[i].x += character.speed / 5;
+                else
+                    mountains[i].x -= character.speed / 5;
+                break;
+            case 2:
+                if (!direction)
+                    mountains[i].x += character.speed / 6;
+                else
+                    mountains[i].x -= character.speed / 6;
+                break;
+            default:
+                if (!direction)
+                    mountains[i].x += character.speed / 5;
+                else
+                    mountains[i].x -= character.speed / 5;
+        }
+    }
+    if (!direction) {
+        character.x += character.speed;
+        simple_enemy.x += (character.speed + simple_enemy.speed) / 2;
+        simple_enemy.left += character.speed;
+        simple_enemy.right += character.speed;
+    } else {
+        character.x -= character.speed;
+        simple_enemy.x -= (character.speed + simple_enemy.speed) / 2;
+        simple_enemy.left -= character.speed;
+        simple_enemy.right -= character.speed;
+    }
+    for (let coin of coins) {
+        if (!direction) {
+            coin.x += character.speed;
+        } else {
+            coin.x -= character.speed;
+        }
+    }
+}
+
 
 function draw() {
     background_sound.play();
@@ -912,31 +1027,42 @@ function draw() {
         line(0, i, width, i);
     }
     sun.drawSun(width / 2, height / 2);
-
     ground.drawGround();
-    mountains.drawMountains();
-    trees.drawTrees();
     clouds.drawClouds();
     clouds.move();
-    canyon1.drawCanyon();
-    canyon2.drawCanyon();
+    for (let i = 0; i < mountains.length; i++)
+        mountains[i].draw();
+    for (let i = 0; i < trees.length; i++)
+        trees[i].draw();
+    for (let i = 0; i < platforms.length; i++)
+        platforms[i].draw();
+    for (let i = 0; i < canyons.length; i++)
+        canyons[i].drawCanyon();
     lives.drawLives();
-    character.checkCanyon1();
-    character.checkCanyon2();
+    character.checkCanyon();
     character.draw();
     character.movement();
     character.gravity(ground);
     character.checkOutside();
     character.deadAnimation();
-    drawCoins();
+    character.checkPlatform();
     simple_enemy.draw();
     simple_enemy.movement();
     deathFromEnemy(simple_enemy);
-    checkCoinCollection(character);
+    for (let i = 0; i < coins.length; i++) {
+        coins[i].draw();
+        coins[i].checkCollision(character);
+    }
     score.draw();
     play();
     if (simple_enemy.isDead) {
         simple_enemy.y += 400;
         simple_enemy.isDead = false;
     }
+
+    if (character.x > width / 2)
+        movingCamera(true);
+    else if (character.x < width / 10)
+        movingCamera(false);
+    deathScreen();
 }
